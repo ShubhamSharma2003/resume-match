@@ -20,16 +20,16 @@ Then open `http://localhost:8787`.
 
 ## Deploying to Vercel
 
-`vercel.json` and `api/index.js` run the Express app as a serverless function, and `vercel.json` rewrites every `/api/*` request to it. Deploying the front end alone leaves nothing behind `/api`, so Vercel answers with its own 404 page and the password screen reports that it cannot reach the API.
+`vercel.json` and `api/index.js` run the Express app as a serverless function, and `vercel.json` rewrites every `/api/*` request to it. Deploying the front end alone leaves nothing behind `/api`, so Vercel answers with its own 404 page and the app reports that it cannot reach the API.
 
 Set these in **Project Settings → Environment Variables**, then redeploy:
 
 | Variable | Required | Notes |
 | --- | --- | --- |
 | `OPENAI_API_KEY` | yes | Tailoring returns 503 without it. |
-| `APP_PASSWORD` | recommended | Defaults to the value in `server/app.js` if unset. |
-| `AUTH_SECRET` | recommended | Signs session tokens. Derived from `APP_PASSWORD` if unset. |
 | `OPENAI_MODEL` | no | Defaults to `gpt-5.4-mini`. |
+
+> **The app has no authentication.** Anyone who reaches the URL can tailor résumés against your `OPENAI_API_KEY`. On a public deployment, restrict access at the platform — Vercel's **Deployment Protection** (Settings → Deployment Protection) puts Vercel Authentication or a shared password in front of the whole project, `/api` included.
 
 Two things work differently on a serverless host, and the app adapts on its own:
 
@@ -45,6 +45,6 @@ For on-disk résumé storage and in-app PDF preview, run the Node server as a lo
 - The model is instructed to preserve LaTeX packages, macros, layout, spacing, sections, and contact details.
 - Rewriting must remain supported by the original résumé; absent JD skills are shown as gaps rather than added as claims.
 - The displayed score is a transparent weighted estimate: 45% keyword coverage, 40% core requirement coverage, and 15% parse-friendly structure. It is not an employer ATS score.
-- LaTeX runs with shell escape disabled. For a public multi-user deployment, add authentication, per-user storage, rate limiting, and stronger process/container isolation.
+- LaTeX runs with shell escape disabled. The app itself is unauthenticated and single-tenant: for a public multi-user deployment, add authentication, per-user storage, rate limiting, and stronger process/container isolation.
 
 The app uses the OpenAI Responses API with Structured Outputs, following the [official OpenAI documentation](https://developers.openai.com/api/docs/guides/structured-outputs).
