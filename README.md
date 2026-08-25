@@ -1,6 +1,6 @@
 # Resumatch
 
-A web app that keeps one master Overleaf/LaTeX résumé and tailors its wording to each pasted job description through your OpenAI API connection. It provides an explainable ATS-fit estimate, change review, LaTeX editing, compiled PDF preview, and PDF download.
+A web app that keeps one master Overleaf/LaTeX résumé and tailors its wording to each pasted job description through your OpenAI API connection. It provides an ATS-fit estimate, a JD match score, a review list of everything it added, change review, LaTeX editing, compiled PDF preview, and PDF download.
 
 ## Run locally
 
@@ -43,7 +43,8 @@ For on-disk résumé storage and in-app PDF preview, run the Node server as a lo
 ## Product guardrails
 
 - The model is instructed to preserve LaTeX packages, macros, layout, spacing, sections, and contact details.
-- Rewriting must remain supported by the original résumé; absent JD skills are shown as gaps rather than added as claims.
+- The rewrite fills the role's gaps: skills, tools, technologies and practices the job asks for are written into the résumé, and every addition the source did not support is listed under *Added for this role* for you to keep or delete before sending.
+- Credentials are never fabricated. Degrees, universities, employers, job titles, employment dates, certifications, publications, conference talks, awards and named customers are left alone, as are all existing metrics; a requirement that needs one of those stays listed as not covered.
 - The displayed score is a transparent weighted estimate: 45% keyword coverage, 40% core requirement coverage, and 15% parse-friendly structure. It is not an employer ATS score.
 - LaTeX runs with shell escape disabled. The app itself is unauthenticated and single-tenant: for a public multi-user deployment, add authentication, per-user storage, rate limiting, and stronger process/container isolation.
 
