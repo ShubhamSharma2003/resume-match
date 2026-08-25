@@ -18,6 +18,12 @@ docker run --rm -p 8787:8787 --env-file .env -v resumatch-data:/app/.resume-data
 
 Then open `http://localhost:8787`.
 
+## Deploying
+
+Resumatch is a Node server plus a built front end, so it needs a host that runs `server/index.js` — a container host, a VM, or any platform that runs the Dockerfile. Build with `npm run build` and serve with `NODE_ENV=production npm start`.
+
+A static-only host (Vercel, Netlify, GitHub Pages, S3) will serve the interface but has nothing behind `/api`, so it returns its own 404 page instead of JSON and the password screen reports that it cannot reach the API. The Express server also holds session tokens in memory and stores the master résumé on disk, and PDF preview shells out to a LaTeX engine, so a single long-lived process is the right deployment shape rather than serverless functions.
+
 ## Product guardrails
 
 - The model is instructed to preserve LaTeX packages, macros, layout, spacing, sections, and contact details.

@@ -9,6 +9,19 @@ import './styles.css';
 const SAMPLE_JD = `We are looking for a Product Analyst who can partner with product and engineering teams, define KPIs, build dashboards, run experiments, and turn complex data into clear recommendations. Strong SQL, Python, stakeholder management, A/B testing, and data visualization skills are required.`;
 const AUTH_TOKEN_KEY = 'resumatch-tab-token';
 
+// The API answers in JSON; anything else means the request never reached the Node
+// server (a host serving only the built front end returns its own 404 page here).
+async function readJson(res) {
+  const text = (await res.text()).trim();
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    let path = 'the API';
+    try { path = new URL(res.url).pathname; } catch { /* keep the generic label */ }
+    throw new Error(`${path} answered ${res.status} with a non-JSON response ("${text.slice(0, 40)}…"). The Node API is not being served at /api — start it with "npm run dev" locally, or deploy the server as described in the README.`);
+  }
+}
+
 function App() {
   const [authState, setAuthState] = useState('checking');
   const [template, setTemplate] = useState('');
@@ -33,7 +46,7 @@ function App() {
 
   useEffect(() => {
     if (authState !== 'unlocked') return;
-    authorizedFetch('/api/template').then(r => r.json()).then(data => setTemplate(data.latex || '')).catch(() => {});
+    authorizedFetch('/api/template').then(readJson).then(data => setTemplate(data.latex || '')).catch(() => {});
   }, [authState]);
 
   useEffect(() => () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); }, [pdfUrl]);
@@ -55,7 +68,7 @@ function App() {
 
   async function unlock(password) {
     const res = await fetch('/api/auth/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
-    const data = await res.json();
+    const data = await readJson(res);
     if (!res.ok) throw new Error(data.error || 'Incorrect password.');
     sessionStorage.setItem(AUTH_TOKEN_KEY, data.token);
     setAuthState('unlocked');
@@ -65,7 +78,7 @@ function App() {
     setSaving(true); setError('');
     try {
       const res = await authorizedFetch('/api/template', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ latex: template }) });
-      const data = await res.json();
+      const data = await readJson(res);
       if (!res.ok) throw new Error(data.error || 'Could not save template');
     } catch (e) { setError(e.message); } finally { setSaving(false); }
   }
@@ -74,7 +87,7 @@ function App() {
     setBusy(true); setError(''); setResult(null); setPdfUrl('');
     try {
       const res = await authorizedFetch('/api/tailor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobDescription: jd, latex: template }) });
-      const data = await res.json();
+      const data = await readJson(res);
       if (!res.ok) throw new Error(data.error || 'Tailoring failed');
       setResult(data); setTab('preview');
       if (data.pdfAvailable) await compile(data.latex, false);
@@ -84,7 +97,7 @@ function App() {
   async function compile(latex = result?.latex, download = false) {
     setError('');
     const res = await authorizedFetch('/api/compile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ latex }) });
-    if (!res.ok) { const data = await res.json(); throw new Error(data.error || 'PDF compilation failed'); }
+    if (!res.ok) { const data = await readJson(res); throw new Error(data.error || 'PDF compilation failed'); }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     if (pdfUrl) URL.revokeObjectURL(pdfUrl);
