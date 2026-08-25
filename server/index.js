@@ -171,10 +171,21 @@ app.post('/api/compile', requireAuth, async (req, res) => {
   } finally { await rm(workDir, { recursive: true, force: true }); }
 });
 
+// Keep every /api response JSON, so a mistyped route never falls through to the SPA
+// handler below and returns HTML to a client that is about to parse JSON.
+app.use('/api', (_req, res) => res.status(404).json({ error: 'Unknown API route.' }));
+
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(ROOT, 'dist')));
   app.get('*', (_req, res) => res.sendFile(path.join(ROOT, 'dist', 'index.html')));
 }
+
+app.use((error, req, res, next) => {
+  if (res.headersSent) return next(error);
+  if (!req.path.startsWith('/api')) return next(error);
+  console.error(error);
+  res.status(error?.status || 500).json({ error: error?.type === 'entity.parse.failed' ? 'The request body was not valid JSON.' : 'The server hit an unexpected error.' });
+});
 
 app.listen(PORT, () => console.log(`Resumatch server listening on http://localhost:${PORT}`));
 
