@@ -18,11 +18,27 @@ docker run --rm -p 8787:8787 --env-file .env -v resumatch-data:/app/.resume-data
 
 Then open `http://localhost:8787`.
 
-## Deploying
+## Deploying to Vercel
 
-Resumatch is a Node server plus a built front end, so it needs a host that runs `server/index.js` — a container host, a VM, or any platform that runs the Dockerfile. Build with `npm run build` and serve with `NODE_ENV=production npm start`.
+`vercel.json` and `api/index.js` run the Express app as a serverless function, and `vercel.json` rewrites every `/api/*` request to it. Deploying the front end alone leaves nothing behind `/api`, so Vercel answers with its own 404 page and the password screen reports that it cannot reach the API.
 
-A static-only host (Vercel, Netlify, GitHub Pages, S3) will serve the interface but has nothing behind `/api`, so it returns its own 404 page instead of JSON and the password screen reports that it cannot reach the API. The Express server also holds session tokens in memory and stores the master résumé on disk, and PDF preview shells out to a LaTeX engine, so a single long-lived process is the right deployment shape rather than serverless functions.
+Set these in **Project Settings → Environment Variables**, then redeploy:
+
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | yes | Tailoring returns 503 without it. |
+| `APP_PASSWORD` | recommended | Defaults to the value in `server/app.js` if unset. |
+| `AUTH_SECRET` | recommended | Signs session tokens. Derived from `APP_PASSWORD` if unset. |
+| `OPENAI_MODEL` | no | Defaults to `gpt-5.4-mini`. |
+
+Two things work differently on a serverless host, and the app adapts on its own:
+
+- **The master résumé is stored in your browser.** Serverless filesystems are read-only, so saving reports `storage: "browser"` and the client keeps the LaTeX in `localStorage`, sending it with each tailor request.
+- **There is no PDF preview or download.** Compilation needs a LaTeX binary, which a serverless function cannot ship. The result panel offers *Copy LaTeX for Overleaf* instead.
+
+## Deploying with a persistent server
+
+For on-disk résumé storage and in-app PDF preview, run the Node server as a long-lived process — a container host, a VM, or anything that runs the Dockerfile. Build with `npm run build` and serve with `NODE_ENV=production npm start`, which serves the API and the front end from one port.
 
 ## Product guardrails
 

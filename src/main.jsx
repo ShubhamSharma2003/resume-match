@@ -8,6 +8,19 @@ import './styles.css';
 
 const SAMPLE_JD = `We are looking for a Product Analyst who can partner with product and engineering teams, define KPIs, build dashboards, run experiments, and turn complex data into clear recommendations. Strong SQL, Python, stakeholder management, A/B testing, and data visualization skills are required.`;
 const AUTH_TOKEN_KEY = 'resumatch-tab-token';
+const TEMPLATE_KEY = 'resumatch-master-latex';
+
+// A serverless deployment has no writable disk, so the browser keeps the master
+// résumé and sends it with each request. A disk-backed server still wins on load.
+function readStoredTemplate() {
+  try { return localStorage.getItem(TEMPLATE_KEY) || ''; } catch { return ''; }
+}
+
+function storeTemplate(latex) {
+  try { localStorage.setItem(TEMPLATE_KEY, latex); } catch { /* storage blocked; the session copy still works */ }
+}
+
+function looksLikeLatex(value) { return String(value || '').includes('\\begin{document}'); }
 
 // The API answers in JSON; anything else means the request never reached the Node
 // server (a host serving only the built front end returns its own 404 page here).
@@ -24,7 +37,7 @@ async function readJson(res) {
 
 function App() {
   const [authState, setAuthState] = useState('checking');
-  const [template, setTemplate] = useState('');
+  const [template, setTemplate] = useState(readStoredTemplate);
   const [jd, setJd] = useState('');
   const [result, setResult] = useState(null);
   const [pdfUrl, setPdfUrl] = useState('');
@@ -32,6 +45,7 @@ function App() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [tab, setTab] = useState('preview');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
@@ -46,7 +60,9 @@ function App() {
 
   useEffect(() => {
     if (authState !== 'unlocked') return;
-    authorizedFetch('/api/template').then(readJson).then(data => setTemplate(data.latex || '')).catch(() => {});
+    authorizedFetch('/api/template').then(readJson)
+      .then(data => { if (looksLikeLatex(data.latex)) { setTemplate(data.latex); storeTemplate(data.latex); } })
+      .catch(() => {});
   }, [authState]);
 
   useEffect(() => () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); }, [pdfUrl]);
@@ -80,11 +96,12 @@ function App() {
       const res = await authorizedFetch('/api/template', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ latex: template }) });
       const data = await readJson(res);
       if (!res.ok) throw new Error(data.error || 'Could not save template');
+      storeTemplate(template);
     } catch (e) { setError(e.message); } finally { setSaving(false); }
   }
 
   async function tailor() {
-    setBusy(true); setError(''); setResult(null); setPdfUrl('');
+    setBusy(true); setError(''); setResult(null); setPdfUrl(''); setCopied(false);
     try {
       const res = await authorizedFetch('/api/tailor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobDescription: jd, latex: template }) });
       const data = await readJson(res);
@@ -92,6 +109,11 @@ function App() {
       setResult(data); setTab('preview');
       if (data.pdfAvailable) await compile(data.latex, false);
     } catch (e) { setError(e.message); } finally { setBusy(false); }
+  }
+
+  async function copyLatex(latex) {
+    try { await navigator.clipboard.writeText(latex); setCopied(true); }
+    catch { setError('Could not reach the clipboard. Copy the source from the LaTeX tab instead.'); }
   }
 
   async function compile(latex = result?.latex, download = false) {
@@ -171,7 +193,9 @@ function App() {
             </div>
             <div className="actions">
               <button className="secondary-button" onClick={() => { setResult(null); setPdfUrl(''); }}><RotateCcw size={16}/> Start over</button>
-              <button className="primary-button download" onClick={() => compile(result.latex, true).catch(e => setError(e.message))}><Download size={17}/> Download PDF</button>
+              {result.pdfAvailable
+                ? <button className="primary-button download" onClick={() => compile(result.latex, true).catch(e => setError(e.message))}><Download size={17}/> Download PDF</button>
+                : <button className="primary-button download" onClick={() => copyLatex(result.latex)}>{copied ? <Check size={17}/> : <Code2 size={17}/>} {copied ? 'LaTeX copied' : 'Copy LaTeX for Overleaf'}</button>}
             </div>
           </>}
         </section>
@@ -224,7 +248,7 @@ function EmptyState({ hasTemplate, busy }) {
 }
 
 function CompileNotice({ result, onCompile }) {
-  return <div className="compile-notice"><Code2 size={32}/><h3>{result.pdfAvailable ? 'Ready to compile' : 'LaTeX engine not found'}</h3><p>{result.pdfAvailable ? 'Create the PDF preview using your preserved template.' : 'The tailored LaTeX is ready. Install Tectonic or pdfLaTeX on the server, or run the included Docker image, to enable preview and download.'}</p>{result.pdfAvailable && <button className="secondary-button" onClick={onCompile}>Build preview</button>}</div>;
+  return <div className="compile-notice"><Code2 size={32}/><h3>{result.pdfAvailable ? 'Ready to compile' : 'LaTeX engine not found'}</h3><p>{result.pdfAvailable ? 'Create the PDF preview using your preserved template.' : 'The tailored LaTeX is ready. Copy it into Overleaf to produce the PDF, or run Resumatch with Docker for in-app preview and download.'}</p>{result.pdfAvailable && <button className="secondary-button" onClick={onCompile}>Build preview</button>}</div>;
 }
 
 function Analysis({ result }) {
