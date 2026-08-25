@@ -96,7 +96,7 @@ function App() {
 
   const stats = useMemo(() => result ? [
     ['Keyword coverage', `${result.breakdown.keywordCoverage}%`],
-    ['Core requirements', `${result.breakdown.requirementCoverage}%`],
+    ['JD match', `${result.breakdown.requirementCoverage}%`],
     ['ATS structure', `${result.breakdown.structure}%`],
   ] : [], [result]);
 
@@ -110,7 +110,7 @@ function App() {
       <section className="hero">
         <div className="eyebrow"><Sparkles size={14}/> LaTeX résumé tailoring</div>
         <h1>Your experience.<br/><em>Their language.</em></h1>
-        <p>Turn one trusted résumé into a role-specific application—without changing its design or inventing a single claim.</p>
+        <p>Turn one trusted résumé into a role-specific application—matched to the role's requirements, with every addition listed for your review.</p>
       </section>
 
       <div className="steps">
@@ -134,7 +134,7 @@ function App() {
             {busy ? <LoaderCircle className="spin" size={18}/> : <Sparkles size={18}/>} {busy ? 'Tailoring résumé…' : 'Tailor my résumé'} {!busy && <ArrowRight size={18}/>}
           </button>
           {error && <div className="error"><CircleAlert size={17}/><span>{error}</span></div>}
-          <p className="truth-note"><Check size={14}/> Only wording supported by your original résumé is used.</p>
+          <p className="truth-note"><Check size={14}/> Added skills are listed for review; degrees, employers, dates and metrics are never invented.</p>
         </aside>
 
         <section className="result-panel">
@@ -190,7 +190,7 @@ function Analysis({ result }) {
   const biggestGap = result.breakdown.requirementCoverage <= result.breakdown.keywordCoverage ? 'core requirements' : 'keyword coverage';
   return <div className="analysis-grid">
     <div className="full score-explainer">
-      <div><span className="explain-label">WHY THE SCORE IS {result.score}</span><h3>Matching improves wording—not unsupported experience.</h3><p>Your largest deduction is <strong>{biggestGap}</strong>. Requirements without evidence stay visible as gaps instead of being inserted as claims.</p></div>
+      <div><span className="explain-label">WHY THE SCORE IS {result.score}</span><h3>The résumé now carries the role's requirements.</h3><p>Your largest remaining deduction is <strong>{biggestGap}</strong>. What is left below could not be written in as a skill—degrees, employers and named achievements are never invented.</p></div>
       <div className="formula">
         <span><b>{keywordPoints}</b><small>keyword points</small></span><i>+</i>
         <span><b>{requirementPoints}</b><small>requirement points</small></span><i>+</i>
@@ -199,8 +199,15 @@ function Analysis({ result }) {
       </div>
     </div>
     <div><h3>Matched keywords <span>{result.matchedKeywords.length}</span></h3><div className="chips">{result.matchedKeywords.map(k => <span className="matched" key={k}>{k}</span>)}</div></div>
-    <div><h3>Gaps to validate <span>{result.missingKeywords.length}</span></h3><div className="chips">{result.missingKeywords.map(k => <span className="missing" key={k}>{k}</span>)}</div></div>
-    <div className="full caveat"><CircleAlert size={17}/><p><strong>Score is an estimate.</strong> It measures keyword coverage, core requirements, and parse-friendly structure. Employer ATS systems use different rules.</p></div>
+    <div><h3>Still not covered <span>{result.missingKeywords.length}</span></h3><div className="chips">{result.missingKeywords.map(k => <span className="missing" key={k}>{k}</span>)}</div></div>
+    {Boolean(result.addedClaims?.length) && <div className="full added-claims">
+      <h3>Added for this role — review before sending <span>{result.addedClaims.length}</span></h3>
+      <p className="added-note">These went into the résumé but were not in your original. Keep the ones you can speak to in an interview and delete the rest from the LaTeX tab.</p>
+      <ul>{result.addedClaims.map((claim, index) => <li key={`${claim.section}-${index}`}>
+        <strong>{claim.section}</strong><span>{claim.text}</span><small>covers: {claim.requirement}</small>
+      </li>)}</ul>
+    </div>}
+    <div className="full caveat"><CircleAlert size={17}/><p><strong>Score is an estimate, and the model grades its own output.</strong> It measures keyword coverage, requirement coverage, and parse-friendly structure. Employer ATS systems use different rules, and anything in the added list is yours to stand behind.</p></div>
   </div>;
 }
 
